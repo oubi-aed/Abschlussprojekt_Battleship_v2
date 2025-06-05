@@ -1,6 +1,9 @@
 #include <stm32f0xx.h>
+#include <string.h>
 #include "clock_.h"
 #include "fifo.h"
+#define LOG( msg... ) printf( msg );
+
 
 // Select the Baudrate for the UART
 #define BAUDRATE 115200 // Baud rate set to 115200 baud per second
@@ -24,6 +27,26 @@ int first_battlefield[10*10] = {
   0, 5, 0, 2, 2, 0, 3, 3, 3, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
+
+void response (char*message, int start, int end)
+{
+  char question [20];
+  for(int i = 0; i < (end-start); i++){
+    question[i] = message[start + i]; // Copy the relevant part of the message into question
+  }
+
+  if (strcmp(question, "HD_START") == 0){
+    asm("nop");
+  }
+  else if (strcmp(question, "HD_BOOM") == 0){
+    asm("nop");
+  }
+  else{
+    asm("nop");
+  }
+
+  
+}
 
 
 
@@ -73,7 +96,22 @@ int main(void)
     if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0)
     {
       if (bytes_recv < MESSAGE_SIZE){
-        message[bytes_recv] = byte; // Store the received byte in the message buffer   
+        int message_start = 0;
+        int message_end = 0;
+
+        message[bytes_recv] = byte; // Store the received byte in the message buffer
+        message_start++;
+              // Log the received byte using printf via the LOG macro
+      // The printf function is supported through the custom _write() function,
+      // which redirects output to UART (USART2)
+        
+        
+        if(byte == '\n' || byte == '\r') // Check for end of message
+        {
+          response(&message, message_start, message_end); // Call response function with the message
+          message_end = message_start; // Reset message_end to start of the next message
+
+        }        
       }
       bytes_recv++; // count the Bytes Received by getting Data from the FIFO
     }
