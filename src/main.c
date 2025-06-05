@@ -58,34 +58,33 @@ void fieldController(int *x, int *y, int field[]){
   }
 }
 
-void response(char question[])
-{
-  if(strncmp (question, "HD_ST", 5) ==0){ //Start
-    LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
-  }
+void response(int command){
+  switch (command) {
+    case 1: //HD_START
+        LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+        break;
 
-  if(strncmp (question, "HD_BO", 5) ==0){ //Attack
-    LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
-  }
-
-  if(strncmp (question, "HD_CS", 5) ==0){ //Checksumm
-    LOG("DH_CS_");
-    int checksum [COL_FIELD] = {0}; // Initialize checksum array
-    for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
-      for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
-        if (active_battlefield[row * COL_FIELD + col] != 0){
-          checksum[row]++;
+    case 2: //HD_CHECKSUM
+      LOG("DH_CS_");
+      int checksum [COL_FIELD] = {0}; // Initialize checksum array
+      for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
+        for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
+          if (active_battlefield[row * COL_FIELD + col] != 0){
+            checksum[row]++;
+          }
         }
+        LOG("%d", checksum[row]);
       }
-      LOG("%d", checksum[row]);
-    }
-    LOG("\n");
-  }
+      LOG("\n");
+      break;
 
-  if(strncmp (question, "HD_SF", 5) ==0){ //Start
-    LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+    case 3: //HD_BOOM
+        LOG("This is boom\n"); // Respond with the user's name
+        break;
+    
+    //default:
+        // code to execute if none of the above cases match
   }
-
 }
 
 
@@ -139,7 +138,7 @@ int main(void)
 
   uint8_t saved_char = 0; // Counter for the number of characters saved in the question buffer
   bool able_to_save = false; // Flag to indicate if the message is ready to be sent
-  char question[5] = {0}; // Null-terminate the string
+  char question[15] = {0}; // Null-terminate the string
 
 
   for (;;)
@@ -154,26 +153,29 @@ int main(void)
                     //extract the question from the message
         //sets bool variable to start saving the question
         if(message[bytes_recv] == 'H'){
+          memset(question, 0, sizeof(question)); // Reset the question buffer
+          saved_char = 0; // Reset the saved character count
           able_to_save = true;
         }
 
-        //saves 5 character in the question buffer
-        if(able_to_save && saved_char < 5){
+        //saves 11 character in the question buffer
+        if(able_to_save ){
           question[saved_char]= message[bytes_recv]; // Increment the saved character count] = message[bytes_recv];
+          if(strncmp (question, "HD_START", 8) ==0){
+            response(1);
+          }
+
+          if(strncmp (question, "HD_CS", 5) ==0){
+            response(2);
+          }
+
+          if(strncmp (question, "HD_BOOM_", 8) ==0){
+            response(3);
+          }
           saved_char++; // Increment the saved character count
 
-          //resets the question buffer, bool variable and saved_char counter
-        } else if (able_to_save && saved_char >= 5){
-          response(question); // Call the response function with the question
-          able_to_save = false; // Reset the flag after processing the question
-          memset(question, 0, sizeof(question)); // Reset the question buffer
-          saved_char = 0; // Reset the saved character count
-        }    
-
-
-
-        
-      }
+        }
+     }
       bytes_recv++; // count the Bytes Received by getting Data from the FIFO
     }
   }
