@@ -34,6 +34,21 @@ int first_battlefield[COL_FIELD*ROWS_FIELD] = {
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 }; //controlsum is: 5, 1, 5, 1, 5, 1, 5, 1, 6, 0
 
+
+
+int first_battlefield_enemy[COL_FIELD*ROWS_FIELD] = {
+  0,0,0,0,0,2,0,0,0,0,
+  0,3,3,3,0,2,0,5,0,0,
+  0,0,0,0,0,0,0,5,0,0,
+  2,0,0,0,0,0,0,5,0,0,
+  2,0,4,4,4,4,0,5,0,2,
+  0,0,0,0,0,0,0,5,0,2,
+  0,0,0,0,0,0,0,0,0,0,
+  3,3,3,0,0,4,4,4,4,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,3,3,3,0,0,2,2,0
+  };
+
 //overrides _write so we can use printf
 // The printf function is supported through the custom _write() function,
 // which redirects output to UART (USART2)
@@ -56,6 +71,18 @@ int fieldController(int x, int y, int field[]){
     for (int col = 0; col < y; col++) // Loop through each collumn
       //LOG("%d\t", field[row * COL_FIELD + col]);
       return field[row * COL_FIELD + col];
+  }
+}
+
+
+int attack_strategy(int *x, int *y, int field[]){
+
+  for (int row = 0; row < COL_FIELD; row++) { // Loop through each row
+    for (int col = 0; col < ROWS_FIELD; col++) // Loop through each collumn
+      if (field[row * COL_FIELD + col] != 0){
+        x = col;
+        y = row;
+      }
   }
 }
 
@@ -109,6 +136,8 @@ int main(void)
   uint32_t bytes_recv = 0;
   char message[MESSAGE_SIZE]; // Buffer to store the received message
   bool able_to_save = false; // Flag to indicate if the message is ready to be sent
+  int x_attack = 0;
+  int y_attack = 0;
 
   for (;;)
   { // Infinite loop
@@ -165,10 +194,8 @@ int main(void)
           } else{
             LOG("DH_BOOM_H\n");
           }
-
-          LOG("This is boom:%s\n",message); // Respond with the user's name
-
-
+          attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
           memset(message, 0, sizeof(message)); // Reset the message buffer
           bytes_recv = 0;
           able_to_save = false;
