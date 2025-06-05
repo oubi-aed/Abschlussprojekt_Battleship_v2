@@ -50,11 +50,12 @@ int _write(int handle, char *data, int size)
     return size;
 }
 
-void fieldController(int *x, int *y, int field[]){
+int fieldController(int x, int y, int field[]){
 
   for (int row = 0; row < x; row++) { // Loop through each row
     for (int col = 0; col < y; col++) // Loop through each collumn
-      LOG("%d\t", field[row * COL_FIELD + col]);
+      //LOG("%d\t", field[row * COL_FIELD + col]);
+      return field[row * COL_FIELD + col];
   }
 }
 
@@ -154,7 +155,20 @@ int main(void)
         }
 
         if(strncmp (message, "HD_BOOM", 7) ==0){
+
+          int x = message[9];
+          int y = message[11];
+          int field = fieldController(x, y, active_battlefield);
+
+          if(field == 0){
+            LOG("DH_BOOM_M\n");
+          } else{
+            LOG("DH_BOOM_H\n");
+          }
+
           LOG("This is boom:%s\n",message); // Respond with the user's name
+
+
           memset(message, 0, sizeof(message)); // Reset the message buffer
           bytes_recv = 0;
           able_to_save = false;
