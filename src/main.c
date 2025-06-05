@@ -9,7 +9,7 @@
 // Select the Baudrate for the UART
 #define BAUDRATE 115200 // Baud rate set to 115200 baud per second
 
-#define MESSAGE_SIZE 64 // Size of the message buffer
+#define MESSAGE_SIZE 20 // Size of the message buffer
 #define COL_FIELD 10 // Number of columns in the battlefield
 #define ROWS_FIELD 10 // Number of rows in the battlefield
 #define active_battlefield first_battlefield // Pointer to the active battlefield array
@@ -58,36 +58,6 @@ void fieldController(int *x, int *y, int field[]){
   }
 }
 
-void response(int command){
-  switch (command) {
-    case 1: //HD_START
-        LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
-        break;
-
-    case 2: //HD_CHECKSUM
-      LOG("DH_CS_");
-      int checksum [COL_FIELD] = {0}; // Initialize checksum array
-      for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
-        for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
-          if (active_battlefield[row * COL_FIELD + col] != 0){
-            checksum[row]++;
-          }
-        }
-        LOG("%d", checksum[row]);
-      }
-      LOG("\n");
-      break;
-
-    case 3: //HD_BOOM
-        LOG("This is boom\n"); // Respond with the user's name
-        break;
-    
-    //default:
-        // code to execute if none of the above cases match
-  }
-}
-
-
 
 void USART2_IRQHandler(void)
 {
@@ -133,13 +103,11 @@ int main(void)
 
   fifo_init((Fifo_t *)&usart_rx_fifo);                       // Init the FIFO
 
+
+
   uint32_t bytes_recv = 0;
   char message[MESSAGE_SIZE]; // Buffer to store the received message
-
-  uint8_t saved_char = 0; // Counter for the number of characters saved in the question buffer
   bool able_to_save = false; // Flag to indicate if the message is ready to be sent
-  char question[15] = {0}; // Null-terminate the string
-
 
   for (;;)
   { // Infinite loop
@@ -148,35 +116,57 @@ int main(void)
     uint8_t byte;
     if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0){
       if (bytes_recv < MESSAGE_SIZE){
-        message[bytes_recv] = byte; // Store the received byte in the message buffer
-
-                    //extract the question from the message
-        //sets bool variable to start saving the question
-        if(message[bytes_recv] == 'H'){
-          memset(question, 0, sizeof(question)); // Reset the question buffer
-          saved_char = 0; // Reset the saved character count
+        if(byte == 'H'){
           able_to_save = true;
         }
-
-        //saves 11 character in the question buffer
-        if(able_to_save ){
-          question[saved_char]= message[bytes_recv]; // Increment the saved character count] = message[bytes_recv];
-          if(strncmp (question, "HD_START", 8) ==0){
-            response(1);
-          }
-
-          if(strncmp (question, "HD_CS", 5) ==0){
-            response(2);
-          }
-
-          if(strncmp (question, "HD_BOOM_", 8) ==0){
-            response(3);
-          }
-          saved_char++; // Increment the saved character count
-
+        if(byte == '\n' || byte == '\r'){
+          able_to_save = false;
         }
-     }
-      bytes_recv++; // count the Bytes Received by getting Data from the FIFO
+        if(able_to_save == true){
+          message[bytes_recv] = byte;
+          bytes_recv++; 
+        }
+
+
+        
+        if(strncmp (message, "HD_START", 8) ==0){
+          LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+          memset(message, 0, sizeof(message)); // Reset the message buffer
+          bytes_recv = 0;
+          able_to_save = false;
+        }
+        
+        if(strncmp (message, "HD_CS", 5) ==0){
+        LOG("DH_CS_");
+        int checksum [COL_FIELD] = {0}; // Initialize checksum array
+        for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
+          for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
+            if (active_battlefield[row * COL_FIELD + col] != 0){
+              checksum[row]++;
+            }
+          }
+          LOG("%d", checksum[row]);
+        }
+        LOG("\n");
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+        bytes_recv = 0;
+        able_to_save = false;
+        }
+
+        if(strncmp (message, "HD_BOOM", 7) ==0){
+          LOG("This is boom:%s\n",message); // Respond with the user's name
+          memset(message, 0, sizeof(message)); // Reset the message buffer
+          bytes_recv = 0;
+          able_to_save = false;
+        }
+          
+      } else if (bytes_recv >= MESSAGE_SIZE){
+        LOG("error_overrun\n");
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+        bytes_recv = 0;
+      }
+      
+      
     }
   }
 }
