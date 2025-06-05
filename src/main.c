@@ -10,7 +10,7 @@
 
 #define MESSAGE_SIZE 64 // Size of the message buffer
 
-const char NAME[] = "Alexander"; // Name of the user, can be used for identification
+const char USER_NAME[] = "Alexander"; // Name of the user, can be used for identification
 
 volatile Fifo_t usart_rx_fifo;
 
@@ -31,6 +31,8 @@ int first_battlefield[10*10] = {
 };
 
 //overrides _write so we can use printf
+// The printf function is supported through the custom _write() function,
+// which redirects output to UART (USART2)
 int _write(int handle, char *data, int size)
 {
     int count = size;
@@ -44,27 +46,17 @@ int _write(int handle, char *data, int size)
     return size;
 }
 
-
-
-void response (char*message, int start, int end)
+void response(char question[])
 {
-  char question [20];
-  for(int i = 0; i < (end-start); i++){
-    question[i] = message[start + i]; // Copy the relevant part of the message into question
+  if(strncmp (question, "HD_STA", 6) ==0) //Start
+  {
+    LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
   }
 
-  if (strcmp(question, "HD_START") == 0){
 
-    LOG("DH_%s\n", NAME);
-  }
-  else if (strcmp(question, "HD_BOOM") == 0){
-    asm("nop");
-  }
-  else{
-    asm("nop");
-  }
 
-  
+
+
 }
 
 
@@ -112,7 +104,7 @@ int main(void)
   fifo_init((Fifo_t *)&usart_rx_fifo);                       // Init the FIFO
 
   uint32_t bytes_recv = 0;
-  char message[MESSAGE_SIZE] = {0}; // Buffer to store the received message
+  char message[MESSAGE_SIZE]; // Buffer to store the received message
 
   for (;;)
   { // Infinite loop
@@ -122,24 +114,12 @@ int main(void)
     if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0)
     {
       if (bytes_recv < MESSAGE_SIZE){
-        int message_start = 0;
-        int message_end = 0;
 
         message[bytes_recv] = byte; // Store the received byte in the message buffer
-        message_start++;
-        LOG("DH_%s\n", NAME);
-
-        
-
-              // Log the received byte using printf via the LOG macro
-      // The printf function is supported through the custom _write() function,
-      // which redirects output to UART (USART2)
-        
-        
-        if(byte == '\n' || byte == '\r') // Check for end of message
+      
+        if(message[bytes_recv] == 'H') // Check for end of message
         {
-          response(&message, message_start, message_end); // Call response function with the message
-          message_end = message_start; // Reset message_end to start of the next message
+          response(message); // Call the response function with the received message
 
         }        
       }
