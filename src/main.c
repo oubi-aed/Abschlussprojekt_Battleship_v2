@@ -9,7 +9,7 @@
 // Select the Baudrate for the UART
 #define BAUDRATE 115200 // Baud rate set to 115200 baud per second
 
-#define MESSAGE_SIZE 20 // Size of the message buffer
+#define MESSAGE_SIZE 64 // Size of the message buffer
 #define COL_FIELD 10 // Number of columns in the battlefield
 #define ROWS_FIELD 10 // Number of rows in the battlefield
 #define active_battlefield first_battlefield // Pointer to the active battlefield array
@@ -75,13 +75,16 @@ int fieldController(int x, int y, int field[]){
 }
 
 
-int attack_strategy(int *x, int *y, int field[]){
+void attack_strategy(int *x, int *y, int field[]){
 
-  for (int row = 0; row < COL_FIELD; row++) { // Loop through each row
-    for (int col = 0; col < ROWS_FIELD; col++) // Loop through each collumn
-      if (field[row * COL_FIELD + col] != 0){
-        x = col;
-        y = row;
+  for ( int row = 0; row < ROWS_FIELD; row++) { // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++) // Loop through each collumn
+      if (field[row * COL_FIELD + col] > 0){
+        *x = col;
+        *y = row;
+        field[row * COL_FIELD + col] = 0;
+
+        return;
       }
   }
 }
@@ -136,8 +139,13 @@ int main(void)
   uint32_t bytes_recv = 0;
   char message[MESSAGE_SIZE]; // Buffer to store the received message
   bool able_to_save = false; // Flag to indicate if the message is ready to be sent
+  int checksum [COL_FIELD] = {0}; // Initialize checksum array
+  int attacker_checksum[ROWS_FIELD]; //Buffer for chechsum host
+  int checksum_control = 0; //summ to check if it's 30
   int x_attack = 0;
   int y_attack = 0;
+
+
 
   for (;;)
   { // Infinite loop
@@ -157,34 +165,59 @@ int main(void)
           bytes_recv++; 
         }
 
-
-        
         if(strncmp (message, "HD_START", 8) ==0){
           LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
           memset(message, 0, sizeof(message)); // Reset the message buffer
           bytes_recv = 0;
           able_to_save = false;
+
+
         }
         
         if(strncmp (message, "HD_CS", 5) ==0){
-        LOG("DH_CS_");
-        int checksum [COL_FIELD] = {0}; // Initialize checksum array
-        for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
-          for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
-            if (active_battlefield[row * COL_FIELD + col] != 0){
-              checksum[row]++;
-            }
+          
+        
+          //store checksum from enemy
+          for (int i = 0; i < ROWS_FIELD; i++){
+            attacker_checksum[i] = message[7+i];
+
+            //controlling checksum
+            checksum_control += attacker_checksum[i];
           }
-          LOG("%d", checksum[row]);
+          //if (checksum_control != 30){
+            //printf("Ceating! Checksum must be 30");
+          //}
+          //send checksum
+          LOG("DH_CS_");
+
+          for (int row = 0; row < ROWS_FIELD; row++){ // splitting the Rows from the Columns{
+            for (int col = 0; col < COL_FIELD; col++){ //summ for each Row
+              if (active_battlefield[row * COL_FIELD + col] > 0){
+                checksum[row]++;
+              }
+
+            }
+            LOG("%d", checksum[row]);
+          }
+          LOG("\n");
+          memset(checksum, 0, sizeof(checksum));
+          memset(message, 0, sizeof(message)); // Reset the message buffer
+          bytes_recv = 0;
+          able_to_save = false;
         }
-        LOG("\n");
-        memset(message, 0, sizeof(message)); // Reset the message buffer
-        bytes_recv = 0;
-        able_to_save = false;
+
+
+        if(strncmp (message, "HD_BOOM_H", 9) ==0){
+          attacker_checksum[y_attack] = attacker_checksum[y_attack] - 1;
+
+          if (attacker_checksum == 0){
+           ("DH_SF%dD%d\n", 1,1);
+          }
         }
 
         if(strncmp (message, "HD_BOOM", 7) ==0){
-
+          
+          //damage control
           int x = message[9];
           int y = message[11];
           int field = fieldController(x, y, active_battlefield);
@@ -193,16 +226,24 @@ int main(void)
             LOG("DH_BOOM_M\n");
           } else{
             LOG("DH_BOOM_H\n");
+            checksum[y_attack] = checksum[y_attack] - 1;
           }
-          attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
+
+
+          
+
+          //attack
+          attack_strategy(&x_attack, &y_attack,first_battlefield_enemy);
           LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+
+
           memset(message, 0, sizeof(message)); // Reset the message buffer
           bytes_recv = 0;
           able_to_save = false;
         }
           
       } else if (bytes_recv >= MESSAGE_SIZE){
-        LOG("error_overrun\n");
+        LOG("error_message_overrun\n");
         memset(message, 0, sizeof(message)); // Reset the message buffer
         bytes_recv = 0;
       }
@@ -211,3 +252,7 @@ int main(void)
     }
   }
 }
+
+
+//Print or log?
+//Schreibfehler?
