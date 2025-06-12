@@ -143,81 +143,55 @@ int main(void)
   int x_defense = 0;
   int y_defense = 0;
   int bytes_recv = 0;
-  bool able_to_save = false; // Flag to indicate if the message is ready to be sent
+  bool able_to_save = true; // Flag to indicate if the message is ready to be sent
 
-  int counter = 0;
+  int debugger1 = 0;
+
 
   for (;;)
   { // Infinite loop
 
-
     uint8_t byte = 0;
-    if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0)
-    {
-      counter++;
-      if (counter  >60){
-        int a = 5;
-        int b = a;
+    
+    debugger1++;
+    if (debugger1  >2){
+      int a = 5;
+      int b = a;
+    }
+
+    int msg_pos = 0;
+    do {
+      if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0) {
+        if (byte == '\n') break;
+        message[msg_pos] = byte;
+        msg_pos++;
       }
 
-      
-      switch (state)
+      if (msg_pos >= MESSAGE_SIZE) {
+        // buffer overflow
+        msg_pos = 0;
+      } 
+    } while(1);
+
+   
+    switch (state)
+    {
+      case 0: //Start
+
+      if (strncmp(message, "HD_START", 8) == 0)
       {
-        case 0: //Start
-          if (byte == 'H')
-        {
-          able_to_save = true;
-        }
-        if (byte == '\n' || byte == '\r')
-        {
-          able_to_save = false;
-        }
-
-        if (able_to_save && bytes_recv < MESSAGE_SIZE)
-        {
-          message[bytes_recv] = byte;
-          (bytes_recv)++;
-        }
-
-        if (strncmp(message, "HD_START", 8) == 0 && able_to_save == false)
-        {
-          state = 1;
-        }
-
-        break;
-      case 1: // HD_Start
-
         LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+        msg_pos = 0;
+        state = 1;
+      }
 
-        // next step
+      break;
+    case 1: // HD_Start
 
-        if (byte == 'H')
-        {
-          memset(message, 0, sizeof(message)); // Reset the message buffer
-          bytes_recv = 0;
-          able_to_save = true;
-        }
-        if (byte == '\n' || byte == '\r')
-        {
-          able_to_save = false;
-        }
-
-        if (able_to_save)
-        {
-          message[bytes_recv] = byte;
-          (bytes_recv)++;
-        }
-
-        if (strncmp(message, "HD_CS", 5) == 0 && able_to_save == false)
-        {
-          state = 2;
-        }
-
-        break;
-
-      case 2: // HD_CS
-
-        // store checksum from enemy
+      if (strncmp(message, "HD_CS_", 6) == 0)
+      {
+                // store checksum from enemy
         // for (int i = 0; i < ROWS_FIELD; i++){
         //   attacker_checksum[i] = message[7+i];
         // controlling checksum
@@ -241,38 +215,15 @@ int main(void)
           LOG("%d", checksum[row]);
         }
         LOG("\n");
-        memset(checksum, 0, sizeof(checksum));
         memset(message, 0, sizeof(message)); // Reset the message buffer
-        bytes_recv = 0;
+        state = 2;
+      }
+      break;
 
-        // next step
-        if (byte == 'H')
-        {
-          able_to_save = true;
-        }
-        if (byte == '\n' || byte == '\r')
-        {
-          able_to_save = false;
-        }
+    case 2: // HD_BOOM
 
-        if (able_to_save && bytes_recv < MESSAGE_SIZE)
-        {
-          message[bytes_recv] = byte;
-          (bytes_recv)++;
-        }
-
-        if (strncmp(message, "HD_BOOM", 8) == 0 && able_to_save == false)
-        {
-          state = 3;
-        }
-        break;
-      case 3: // HD_BOOM
-
-        // attacker_checksum[y_attack] = attacker_checksum[y_attack] - 1;
-
-        // if (attacker_checksum == 0){
-        // LOG("DH_SF%dD%d\n", 1,1);
-        // }
+      if (strncmp(message, "HD_BOOM_", 8) == 0)
+      {
 
         // damage control
         x_defense = message[9];
@@ -287,22 +238,36 @@ int main(void)
         {
           LOG("DH_BOOM_H\n");
           checksum[y_defense] = checksum[y_defense] - 1;
-
-          if (checksum == 0)
-          {
-            LOG("DH_SF%dD%d\n", y_defense, 1);
-          }
         }
 
-        // attack
+
+                           // attack
         attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
         LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
 
-        memset(message, 0, sizeof(message)); // Reset the message buffer
-        bytes_recv = 0;
 
-        break;
+        if (strncmp(message, "HD_BOOM_H", 9) == 0){
+          attacker_checksum[y_attack] = attacker_checksum[y_attack] - 1;
+        }
+        
+
+        if (attacker_checksum == 0 || checksum ==0){
+
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+        state = 3;
+        }
+
       }
+      break;
+    case 3: // HD_BOOM
+
+      if (attacker_checksum == 0 || checksum ==0){
+        LOG("DH_SF%dD%d\n", 1,1);
+
+      }
+
+      break;
     }
+    
   }
 }
