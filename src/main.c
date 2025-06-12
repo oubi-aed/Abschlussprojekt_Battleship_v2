@@ -11,8 +11,8 @@
 #define MESSAGE_SIZE 64                      // Size of the message buffer
 #define COL_FIELD 10                         // Number of columns in the battlefield
 #define ROWS_FIELD 10                        // Number of rows in the battlefield
-#define active_battlefield first_battlefield // Pointer to the active battlefield array
-#define sum_ship_parts 29                   //summ of all shipparts
+#define ACTIVE_BATTLEFIELD first_battlefield // Pointer to the active battlefield array
+#define SUM_SHIP_PARTS 29                   //summ of all shipparts
 
 const char USER_NAME[] = "Alexander"; // Name of the user, can be used for identification
 
@@ -64,7 +64,7 @@ int _write(int handle, char *data, int size)
 
 int fieldController(int x, int y, int field[])
 {
-  return field[y* COL_FIELD + x];
+  return field[x* COL_FIELD + y];
 }
 
 void attack_strategy(int *x, int *y, int field[])
@@ -75,12 +75,25 @@ void attack_strategy(int *x, int *y, int field[])
     for (int col = 0; col < COL_FIELD; col++) // Loop through each collumn
       if (field[row * COL_FIELD + col] > 0)
       {
-        *x = col;
-        *y = row;
+        *y = col;
+        *x = row;
         field[row * COL_FIELD + col] = 0;
         return;
       }
   }
+}
+
+void field_plot(int field[])
+{
+  for (int row = 0; row < ROWS_FIELD; row++)
+  {   
+    LOG("DH_SF%dD", row);                                       // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++){ // Loop through each collumn
+      LOG("%d",field[row * COL_FIELD + col]);
+    }
+    LOG("\n");
+  }
+
 }
 
 void USART2_IRQHandler(void)
@@ -140,10 +153,8 @@ int main(void)
   int y_defense = 0;
   int bytes_recv = 0;
   bool able_to_save = true; // Flag to indicate if the message is ready to be sent
-  int my_ship_parts = sum_ship_parts;
-  int attacker_ship_parts = sum_ship_parts;
-
-  int debugger1 = 0;
+  int my_ship_parts = SUM_SHIP_PARTS;
+  int attacker_ship_parts = SUM_SHIP_PARTS;
 
 
   for (;;)
@@ -151,12 +162,6 @@ int main(void)
 
     uint8_t byte = 0;
     
-    debugger1++;
-    if (debugger1  >2){
-      int a = 5;
-      int b = a;
-    }
-
     int msg_pos = 0;
     do {
       if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0) {
@@ -195,8 +200,8 @@ int main(void)
         // controlling my_checksum
         // my_checksum_control += attacker_my_checksum[i];
         //}
-         //if (my_checksum_control != sum_ship_parts){
-        // printf("Ceating! my_checksum must be %d", sum_ship_parts);
+         //if (my_checksum_control != SUM_SHIP_PARTS){
+        // printf("Ceating! my_checksum must be %d", SUM_SHIP_PARTS);
         //}
 
         // send my_checksum
@@ -205,7 +210,7 @@ int main(void)
         { // splitting the Rows from the Columns{
           for (int col = 0; col < COL_FIELD; col++)
           { // summ for each Row
-            if (active_battlefield[row * COL_FIELD + col] > 0)
+            if (ACTIVE_BATTLEFIELD[row * COL_FIELD + col] > 0)
             {
               my_checksum[row]++;
             }
@@ -226,7 +231,7 @@ int main(void)
         //umwandeln der werte
         x_defense = message[8] - '0';
         y_defense = message[10] - '0';
-        int field = fieldController(x_defense, y_defense, active_battlefield);
+        int field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
 
         if (field == 0)
         {
@@ -249,21 +254,26 @@ int main(void)
           //attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
           attacker_ship_parts--;
         }
-      }
+      
         
-      if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
+        if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
 
-        memset(message, 0, sizeof(message)); // Reset the message buffer
-        state = 3;
+          memset(message, 0, sizeof(message)); // Reset the message buffer
+          state = 3;
+        }
       }
       
       break;
     case 3: // HD_BOOM
 
-      if (attacker_my_checksum == 0 || my_checksum ==0){
-        LOG("DH_SF%dD%d\n", 1,1);
+      if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
+        field_plot(ACTIVE_BATTLEFIELD);
+
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+        state = 0;
 
       }
+
 
       break;
     }
