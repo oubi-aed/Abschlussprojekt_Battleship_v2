@@ -166,7 +166,7 @@ int main(void)
     do {
       if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0) {
         if (byte == '\n') break;
-        message[msg_pos] = byte;
+        message[msg_pos] = (char)byte;
         msg_pos++;
       }
 
