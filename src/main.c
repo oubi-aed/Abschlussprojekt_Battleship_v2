@@ -12,7 +12,7 @@
 #define COL_FIELD 10                         // Number of columns in the battlefield
 #define ROWS_FIELD 10                        // Number of rows in the battlefield
 #define ACTIVE_BATTLEFIELD first_battlefield // Pointer to the active battlefield array
-#define SUM_SHIP_PARTS 29                   //summ of all shipparts
+#define SUM_SHIP_PARTS 29                    // summ of all shipparts
 
 const char USER_NAME[] = "Alexander"; // Name of the user, can be used for identification
 
@@ -20,7 +20,6 @@ volatile Fifo_t usart_rx_fifo;
 
 const uint8_t USART2_RX_PIN = 3; // PA3 is used as USART2_RX
 const uint8_t USART2_TX_PIN = 2; // PA2 is used as USART2_TX
-
 
 int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     2, 2, 0, 3, 3, 3, 0, 0, 0, 0, // Row 0 //
@@ -64,7 +63,7 @@ int _write(int handle, char *data, int size)
 
 int fieldController(int x, int y, int field[])
 {
-  return field[x* COL_FIELD + y];
+  return field[x * COL_FIELD + y];
 }
 
 void attack_strategy(int *x, int *y, int field[])
@@ -86,14 +85,14 @@ void attack_strategy(int *x, int *y, int field[])
 void field_plot(int field[])
 {
   for (int row = 0; row < ROWS_FIELD; row++)
-  {   
-    LOG("DH_SF%dD", row);                                       // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++){ // Loop through each collumn
-      LOG("%d",field[row * COL_FIELD + col]);
+  {
+    LOG("DH_SF%dD", row); // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
+      LOG("%d", field[row * COL_FIELD + col]);
     }
     LOG("\n");
   }
-
 }
 
 void USART2_IRQHandler(void)
@@ -143,7 +142,7 @@ int main(void)
 
   int state = 0;
 
-  char message[MESSAGE_SIZE] = {0};        // Buffer to store the received message
+  char message[MESSAGE_SIZE] = {0};     // Buffer to store the received message
   int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
   int attacker_my_checksum[ROWS_FIELD]; // Buffer for chechsum host
   int my_checksum_control = 0;          // summ to check if it's 30
@@ -156,34 +155,36 @@ int main(void)
   int my_ship_parts = SUM_SHIP_PARTS;
   int attacker_ship_parts = SUM_SHIP_PARTS;
 
-
   for (;;)
   { // Infinite loop
 
     uint8_t byte = 0;
-    
+
     int msg_pos = 0;
-    do {
-      if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0) {
-        if (byte == '\n') break;
-        message[msg_pos] = byte;
+    do
+    {
+      if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0)
+      {
+        if (byte == '\n')
+          break;
+        message[msg_pos] = (char)byte;
         msg_pos++;
       }
 
-      if (msg_pos >= MESSAGE_SIZE) {
+      if (msg_pos >= MESSAGE_SIZE)
+      {
         // buffer overflow
         msg_pos = 0;
-      } 
-    } while(1);
+      }
+    } while (1);
 
-   
     switch (state)
     {
-      case 0: //Start
+    case 0: // Start
 
       if (strncmp(message, "HD_START", 8) == 0)
       {
-        LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+        LOG("DH_START_%s\n", USER_NAME);     // Respond with the user's name
         memset(message, 0, sizeof(message)); // Reset the message buffer
         msg_pos = 0;
         state = 1;
@@ -194,13 +195,13 @@ int main(void)
 
       if (strncmp(message, "HD_CS_", 6) == 0)
       {
-                // store my_checksum from enemy
+        // store my_checksum from enemy
         // for (int i = 0; i < ROWS_FIELD; i++){
         //   attacker_my_checksum[i] = message[7+i];
         // controlling my_checksum
         // my_checksum_control += attacker_my_checksum[i];
         //}
-         //if (my_checksum_control != SUM_SHIP_PARTS){
+        // if (my_checksum_control != SUM_SHIP_PARTS){
         // printf("Ceating! my_checksum must be %d", SUM_SHIP_PARTS);
         //}
 
@@ -228,7 +229,7 @@ int main(void)
       if (strncmp(message, "HD_BOOM_", 8) == 0)
       {
         // damage control
-        //umwandeln der werte
+        // umwandeln der werte
         x_defense = message[8] - '0';
         y_defense = message[10] - '0';
         int field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
@@ -240,43 +241,40 @@ int main(void)
         else
         {
           LOG("DH_BOOM_H\n");
-          //my_checksum[y_defense] = my_checksum[y_defense] - 1;
+          // my_checksum[y_defense] = my_checksum[y_defense] - 1;
           my_ship_parts--;
         }
 
-
-                           // attack
+        // attack
         attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
         LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
 
-
-        if (strncmp(message, "HD_BOOM_H", 9) == 0){
-          //attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
+        if (strncmp(message, "HD_BOOM_H", 9) == 0)
+        {
+          // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
           attacker_ship_parts--;
         }
-      
-        
-        if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
+
+        if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+        {
 
           memset(message, 0, sizeof(message)); // Reset the message buffer
           state = 3;
         }
       }
-      
+
       break;
     case 3: // HD_BOOM
 
-      if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
+      if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+      {
         field_plot(ACTIVE_BATTLEFIELD);
 
         memset(message, 0, sizeof(message)); // Reset the message buffer
         state = 0;
-
       }
-
 
       break;
     }
-    
   }
 }
