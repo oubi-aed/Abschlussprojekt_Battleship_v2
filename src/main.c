@@ -21,6 +21,22 @@ volatile Fifo_t usart_rx_fifo;
 const uint8_t USART2_RX_PIN = 3; // PA3 is used as USART2_RX
 const uint8_t USART2_TX_PIN = 2; // PA2 is used as USART2_TX
 
+
+int state = 0;
+
+char message[MESSAGE_SIZE] = {0};     // Buffer to store the received message
+int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
+int attacker_my_checksum[ROWS_FIELD]; // Buffer for chechsum host
+int my_checksum_control = 0;          // summ to check if it's 30
+int x_attack = 0;
+int y_attack = 0;
+int x_defense = 0;
+int y_defense = 0;
+
+
+int my_ship_parts = SUM_SHIP_PARTS;
+int attacker_ship_parts = SUM_SHIP_PARTS;
+
 int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     2, 2, 0, 3, 3, 3, 0, 0, 0, 0, // Row 0 //
     0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
@@ -109,6 +125,7 @@ void USART2_IRQHandler(void)
   USART2->ICR = 0xffffffff;
 }
 
+
 void config_hardware(void)
 {
   SystemClock_Config(); // Configure the system clock to 48 MHz
@@ -136,6 +153,25 @@ void config_hardware(void)
   NVIC_EnableIRQ(USART2_IRQn);                               // Enable USART2 interrupt
 }
 
+void reset_all(void){
+
+  memset(my_checksum, 0, sizeof(my_checksum));
+  memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
+  
+  my_checksum_control = 0;          // summ to check if it's 30
+  x_attack = 0;
+  y_attack = 0;
+  x_defense = 0;
+  y_defense = 0;
+  my_ship_parts = SUM_SHIP_PARTS;
+  attacker_ship_parts = SUM_SHIP_PARTS;
+
+}
+
+
+
+
+
 int main(void)
 {
 
@@ -143,24 +179,8 @@ int main(void)
 
   fifo_init((Fifo_t *)&usart_rx_fifo); // Init the FIFO
 
-  int state = 0;
 
-  char message[MESSAGE_SIZE] = {0};     // Buffer to store the received message
-  int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
-  int attacker_my_checksum[ROWS_FIELD]; // Buffer for chechsum host
-  int my_checksum_control = 0;          // summ to check if it's 30
-  int x_attack = 0;
-  int y_attack = 0;
-  int x_defense = 0;
-  int y_defense = 0;
-  
 
-  int my_ship_parts = SUM_SHIP_PARTS;
-  int attacker_ship_parts = SUM_SHIP_PARTS;
-
-  //debug
-  int field_save[1000] = {0};
-  int debug_counter = 0;
 
   for (;;)
   { // Infinite loop
@@ -189,8 +209,11 @@ int main(void)
     {
     case 0: // Start
 
+      reset_all();
+
       if (strncmp(message, "HD_START", 8) == 0)
       {
+
         LOG("DH_START_%s\n", USER_NAME);     // Respond with the user's name
         memset(message, 0, sizeof(message)); // Reset the message buffer
         msg_pos = 0;
@@ -258,9 +281,6 @@ int main(void)
         field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
 
 
-        field_save[debug_counter] = field;
-        debug_counter++;
-
         if (field == 0)
         {
           LOG("DH_BOOM_M\n");
@@ -294,8 +314,24 @@ int main(void)
         field_plot(ACTIVE_BATTLEFIELD);
 
         memset(message, 0, sizeof(message)); // Reset the message buffer
-        state = 0;
+        state = 4;
       }
+      break;
+
+    case 4: //reset
+    
+     
+
+      if (strncmp(message, "HD_START", 8) == 0){
+        reset_all();
+
+        state = 0;
+
+      }
+
+
+
+     
 
       break;
     }
