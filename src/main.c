@@ -63,7 +63,10 @@ int _write(int handle, char *data, int size)
 
 int fieldController(int x, int y, int field[])
 {
-  return field[x * COL_FIELD + y];
+  int pos_number = 0;
+  pos_number = field[x * COL_FIELD + y];
+  
+  return pos_number;
 }
 
 void attack_strategy(int *x, int *y, int field[])
@@ -150,10 +153,14 @@ int main(void)
   int y_attack = 0;
   int x_defense = 0;
   int y_defense = 0;
-  int bytes_recv = 0;
-  bool able_to_save = true; // Flag to indicate if the message is ready to be sent
+  
+
   int my_ship_parts = SUM_SHIP_PARTS;
   int attacker_ship_parts = SUM_SHIP_PARTS;
+
+  //debug
+  int field_save[1000] = {0};
+  int debug_counter = 0;
 
   for (;;)
   { // Infinite loop
@@ -226,13 +233,33 @@ int main(void)
 
     case 2: // HD_BOOM
 
-      if (strncmp(message, "HD_BOOM_", 8) == 0)
+
+      if (strncmp(message, "HD_BOOM_H", 9) == 0)
+      {
+        // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
+        attacker_ship_parts--;
+
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+      
+      }else if(strncmp(message, "HD_BOOM_M", 9) == 0){
+
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+
+      }else if (strncmp(message, "HD_BOOM_", 8) == 0)
       {
         // damage control
         // umwandeln der werte
+
         x_defense = message[8] - '0';
         y_defense = message[10] - '0';
-        int field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
+        
+
+        int field = 0;
+        field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
+
+
+        field_save[debug_counter] = field;
+        debug_counter++;
 
         if (field == 0)
         {
@@ -249,11 +276,7 @@ int main(void)
         attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
         LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
 
-        if (strncmp(message, "HD_BOOM_H", 9) == 0)
-        {
-          // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
-          attacker_ship_parts--;
-        }
+
 
         if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
         {
@@ -264,7 +287,7 @@ int main(void)
       }
 
       break;
-    case 3: // HD_BOOM
+    case 3: // plot battlefield after end
 
       if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
       {
