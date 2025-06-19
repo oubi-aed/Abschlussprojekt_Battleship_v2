@@ -49,6 +49,8 @@ int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     0, 5, 0, 2, 2, 0, 3, 3, 3, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // controlsum is: 5, 1, 5, 1, 5, 1, 5, 1, 6, 0
 
+
+    //best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
 int first_battlefield_enemy[COL_FIELD * ROWS_FIELD] = {
     0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
     0, 3, 3, 3, 0, 2, 0, 5, 0, 0,
@@ -60,6 +62,18 @@ int first_battlefield_enemy[COL_FIELD * ROWS_FIELD] = {
     3, 3, 3, 0, 0, 4, 4, 4, 4, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 3, 3, 3, 0, 0, 2, 2, 0};
+
+int attack_each[COL_FIELD * ROWS_FIELD] = {
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,};
 
 // overrides _write so we can use printf
 //  The printf function is supported through the custom _write() function,
@@ -100,6 +114,8 @@ void attack_strategy(int *x, int *y, int field[])
       }
   }
 }
+
+
 
 void field_plot(int field[])
 {
@@ -293,10 +309,17 @@ int main(void)
         }
 
         // attack
-        attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
+        //attack_strategy(&x_attack, &y_attack, attack_each);
+        for ( int i = 0; i < 100; i++){
+      {
+        if (i % ROWS_FIELD == 0){
+          x_attack = i / ROWS_FIELD;
+        }
+        y_attack = (i - x_attack) / ROWS_FIELD;
+
+      }
+        }
         LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-
-
 
         if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
         {
@@ -320,8 +343,6 @@ int main(void)
 
     case 4: //reset
     
-     
-
       if (strncmp(message, "HD_START", 8) == 0){
         reset_all();
 
