@@ -21,8 +21,9 @@ volatile Fifo_t usart_rx_fifo;
 const uint8_t USART2_RX_PIN = 3; // PA3 is used as USART2_RX
 const uint8_t USART2_TX_PIN = 2; // PA2 is used as USART2_TX
 
-
 int state = 0;
+int state_strategy = 0;
+
 
 char message[MESSAGE_SIZE] = {0};     // Buffer to store the received message
 int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
@@ -32,7 +33,6 @@ int x_attack = 0;
 int y_attack = 0;
 int x_defense = 0;
 int y_defense = 0;
-
 
 int my_ship_parts = SUM_SHIP_PARTS;
 int attacker_ship_parts = SUM_SHIP_PARTS;
@@ -49,19 +49,18 @@ int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     0, 5, 0, 2, 2, 0, 3, 3, 3, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // controlsum is: 5, 1, 5, 1, 5, 1, 5, 1, 6, 0
 
-
-    //best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
-int first_battlefield_enemy[COL_FIELD * ROWS_FIELD] = {
-    0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
-    0, 3, 3, 3, 0, 2, 0, 5, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 5, 0, 0,
-    2, 0, 0, 0, 0, 0, 0, 5, 0, 0,
-    2, 0, 4, 4, 4, 4, 0, 5, 0, 2,
-    0, 0, 0, 0, 0, 0, 0, 5, 0, 2,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    3, 3, 3, 0, 0, 4, 4, 4, 4, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 3, 3, 3, 0, 0, 2, 2, 0};
+// best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
+int attack_best_strategy[COL_FIELD * ROWS_FIELD] = {
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+    0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+    0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
 
 int attack_each[COL_FIELD * ROWS_FIELD] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -73,7 +72,7 @@ int attack_each[COL_FIELD * ROWS_FIELD] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,};
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 // overrides _write so we can use printf
 //  The printf function is supported through the custom _write() function,
@@ -95,16 +94,16 @@ int fieldController(int x, int y, int field[])
 {
   int pos_number = 0;
   pos_number = field[x * COL_FIELD + y];
-  
+
   return pos_number;
 }
 
 void attack_strategy(int *x, int *y, int field[])
 {
-
   for (int row = 0; row < ROWS_FIELD; row++)
-  {                                           // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++) // Loop through each collumn
+  { // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
       if (field[row * COL_FIELD + col] > 0)
       {
         *y = col;
@@ -112,6 +111,9 @@ void attack_strategy(int *x, int *y, int field[])
         field[row * COL_FIELD + col] = 0;
         return;
       }
+
+    }
+
   }
 }
 
@@ -141,7 +143,6 @@ void USART2_IRQHandler(void)
   USART2->ICR = 0xffffffff;
 }
 
-
 void config_hardware(void)
 {
   SystemClock_Config(); // Configure the system clock to 48 MHz
@@ -169,24 +170,20 @@ void config_hardware(void)
   NVIC_EnableIRQ(USART2_IRQn);                               // Enable USART2 interrupt
 }
 
-void reset_all(void){
+void reset_all(void)
+{
 
   memset(my_checksum, 0, sizeof(my_checksum));
   memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
-  
-  my_checksum_control = 0;          // summ to check if it's 30
+
+  my_checksum_control = 0; // summ to check if it's 30
   x_attack = 0;
   y_attack = 0;
   x_defense = 0;
   y_defense = 0;
   my_ship_parts = SUM_SHIP_PARTS;
   attacker_ship_parts = SUM_SHIP_PARTS;
-
 }
-
-
-
-
 
 int main(void)
 {
@@ -194,9 +191,6 @@ int main(void)
   config_hardware(); // Function to configure the hardware
 
   fifo_init((Fifo_t *)&usart_rx_fifo); // Init the FIFO
-
-
-
 
   for (;;)
   { // Infinite loop
@@ -272,30 +266,28 @@ int main(void)
 
     case 2: // HD_BOOM
 
-
       if (strncmp(message, "HD_BOOM_H", 9) == 0)
       {
         // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
         attacker_ship_parts--;
 
         memset(message, 0, sizeof(message)); // Reset the message buffer
-      
-      }else if(strncmp(message, "HD_BOOM_M", 9) == 0){
+      }
+      else if (strncmp(message, "HD_BOOM_M", 9) == 0)
+      {
 
         memset(message, 0, sizeof(message)); // Reset the message buffer
-
-      }else if (strncmp(message, "HD_BOOM_", 8) == 0)
+      }
+      else if (strncmp(message, "HD_BOOM_", 8) == 0)
       {
         // damage control
         // umwandeln der werte
 
         x_defense = message[8] - '0';
         y_defense = message[10] - '0';
-        
 
         int field = 0;
         field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
-
 
         if (field == 0)
         {
@@ -309,23 +301,45 @@ int main(void)
         }
 
         // attack
-        //attack_strategy(&x_attack, &y_attack, attack_each);
-        for ( int i = 0; i < 100; i++){
-      {
-        if (i % ROWS_FIELD == 0){
-          x_attack = i / ROWS_FIELD;
-        }
-        y_attack = (i - x_attack) / ROWS_FIELD;
-
-      }
-        }
-        LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-
-        if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+        switch (state_strategy)
         {
+        case 0:
 
-          memset(message, 0, sizeof(message)); // Reset the message buffer
-          state = 3;
+          attack_strategy(&x_attack, &y_attack, attack_best_strategy);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+
+          if (x_attack * COL_FIELD + y_attack > 95)
+          {
+
+            state_strategy = 1;
+          }
+
+          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+          {
+
+            memset(message, 0, sizeof(message)); // Reset the message buffer
+            state = 3;
+          }
+
+          break;
+
+        case 1:
+
+          attack_strategy(&x_attack, &y_attack, attack_each);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+
+          if (x_attack * COL_FIELD + y_attack > 95)
+          {
+
+          }
+          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+          {
+
+            memset(message, 0, sizeof(message)); // Reset the message buffer
+            state = 3;
+          }
+
+          
         }
       }
 
@@ -341,19 +355,15 @@ int main(void)
       }
       break;
 
-    case 4: //reset
-    
-      if (strncmp(message, "HD_START", 8) == 0){
+    case 4: // reset
+
+      if (strncmp(message, "HD_START", 8) == 0)
+      {
         reset_all();
 
         state = 0;
-
+        state_strategy = 0;
       }
-
-
-
-     
-
       break;
     }
   }
