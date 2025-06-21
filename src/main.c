@@ -38,6 +38,7 @@ int y_attack_old = 0;
 int x_defense = 0;
 int y_defense = 0;
 bool next_time_surround = false;
+bool miss_field = false;
 
 int my_ship_parts = SUM_SHIP_PARTS;
 int attacker_ship_parts = SUM_SHIP_PARTS;
@@ -127,56 +128,65 @@ void attack_surround(void)
   {
   case 0:                                // attacks right
 
-    if (y_attack+1 < COL_FIELD)
-    {   
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack+1);
-      counter_direction = 1;
+    if (y_attack+1 < COL_FIELD && miss_field == false)
+    { 
+      y_attack +=1;
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      miss_field = true;
       break;
     }
     else
     {
-      
+      y_attack = y_attack -1;
+      miss_field = false;
       counter_direction = 1;
     }
     
   case 1:                                // attacks down
-    if (x_attack+1 < COL_FIELD)
+    if (x_attack+1 < COL_FIELD && miss_field == false)
     {
-      LOG("DH_BOOM_%d_%d\n", x_attack+1, y_attack);
-      counter_direction = 2;
+      x_attack +=1;
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      miss_field = true;
       break;
     }
     else
     { 
+      x_attack = x_attack - 1;
+      miss_field = false;
       counter_direction = 2;
     }
     
   case 2:                                // attacks left
-    if (y_attack-1 >= 0)
+    if (y_attack-1 >= 0 && miss_field == false)
     {
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack-1);
-      counter_direction = 3;
+      y_attack = y_attack -1;
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      miss_field = true;
       break;
     }
     else
     {
-      
+      y_attack+=1;
+      miss_field = false;
       counter_direction = 3;
     }
     
   case 3:                                // attacks up
-    if (x_attack-1 >= 0)
+    if (x_attack-1 >= 0 && miss_field == false)
     {
-      LOG("DH_BOOM_%d_%d\n", x_attack-1, y_attack);
+      x_attack = x_attack-1;
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
-      counter_direction = 0;
+      miss_field = true;
     
     }
     else
     {
-
+      x_attack += 1;
+      miss_field = false;
       LOG("DH_BOOM_0_0\n");    
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
@@ -337,6 +347,7 @@ int main(void)
 
       if (strncmp(message, "HD_BOOM_H", 9) == 0)
       {
+        miss_field = false;
         // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
         attacker_ship_parts--;
         if (x_attack_old != x_attack || y_attack_old != y_attack)
@@ -351,6 +362,7 @@ int main(void)
 
       if (strncmp(message, "HD_BOOM_M", 9) == 0)
       {
+        miss_field = true;
         memset(message, 0, sizeof(message)); // Reset the message buffer
       }
 
