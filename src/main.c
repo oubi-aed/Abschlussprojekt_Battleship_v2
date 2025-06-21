@@ -12,7 +12,7 @@
 #define COL_FIELD 10                         // Number of columns in the battlefield
 #define ROWS_FIELD 10                        // Number of rows in the battlefield
 #define ACTIVE_BATTLEFIELD first_battlefield // Pointer to the active battlefield array
-#define SUM_SHIP_PARTS 29                   //summ of all shipparts
+#define SUM_SHIP_PARTS 29                    // summ of all shipparts
 
 const char USER_NAME[] = "Alexander"; // Name of the user, can be used for identification
 
@@ -21,6 +21,27 @@ volatile Fifo_t usart_rx_fifo;
 const uint8_t USART2_RX_PIN = 3; // PA3 is used as USART2_RX
 const uint8_t USART2_TX_PIN = 2; // PA2 is used as USART2_TX
 
+// states for state machines
+int state = 0;
+int state_strategy = 0;
+int counter_direction = 0;
+int old_state_strategy = 0; // saves old state of state_strategy so we can return to the selected strategy
+
+char message[MESSAGE_SIZE] = {0};     // Buffer to store the received message
+int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
+int attacker_my_checksum[ROWS_FIELD]; // Buffer for chechsum host
+int my_checksum_control = 0;          // summ to check if it's 30
+int x_attack = 0;
+int x_attack_old = 0;
+int y_attack = 0;
+int y_attack_old = 0;
+int x_defense = 0;
+int y_defense = 0;
+bool next_time_surround = false;
+bool miss_field = false;
+
+int my_ship_parts = SUM_SHIP_PARTS;
+int attacker_ship_parts = SUM_SHIP_PARTS;
 
 int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     2, 2, 0, 3, 3, 3, 0, 0, 0, 0, // Row 0 //
@@ -34,17 +55,42 @@ int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     0, 5, 0, 2, 2, 0, 3, 3, 3, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // controlsum is: 5, 1, 5, 1, 5, 1, 5, 1, 6, 0
 
-int first_battlefield_enemy[COL_FIELD * ROWS_FIELD] = {
-    0, 0, 0, 0, 0, 2, 0, 0, 0, 0,
-    0, 3, 3, 3, 0, 2, 0, 5, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 5, 0, 0,
-    2, 0, 0, 0, 0, 0, 0, 5, 0, 0,
-    2, 0, 4, 4, 4, 4, 0, 5, 0, 2,
-    0, 0, 0, 0, 0, 0, 0, 5, 0, 2,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    3, 3, 3, 0, 0, 4, 4, 4, 4, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 3, 3, 3, 0, 0, 2, 2, 0};
+int memory[COL_FIELD * ROWS_FIELD] = {
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+
+// best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
+int attack_best_strategy[COL_FIELD * ROWS_FIELD] = {
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+    0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+    0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+    1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0, 0, 1, 0, 0, 0};
+
+int attack_each[COL_FIELD * ROWS_FIELD] = {
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 // overrides _write so we can use printf
 //  The printf function is supported through the custom _write() function,
@@ -64,36 +110,130 @@ int _write(int handle, char *data, int size)
 
 int fieldController(int x, int y, int field[])
 {
-  return field[x* COL_FIELD + y];
+  int pos_number = 0;
+  pos_number = field[x * COL_FIELD + y];
+
+  return pos_number;
 }
 
 void attack_strategy(int *x, int *y, int field[])
 {
-
   for (int row = 0; row < ROWS_FIELD; row++)
-  {                                           // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++) // Loop through each collumn
+  { // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
       if (field[row * COL_FIELD + col] > 0)
       {
-        *y = col;
-        *x = row;
-        field[row * COL_FIELD + col] = 0;
-        return;
+        if (memory[row * COL_FIELD + col] > 0)
+        {
+          *y = col;
+          *x = row;
+          memory[row * COL_FIELD + col] = 0;
+          return;
+        }
       }
+    }
+  }
+}
+
+void attack_surround(void)
+{
+  // attack surroundings
+  switch (counter_direction)
+  {
+  case 0: // attacks right
+    y_attack += 1;
+    if (y_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      y_attack = y_attack - 1;
+      miss_field = false;
+      counter_direction = 1;
+    }
+
+  case 1:
+    x_attack += 1; // attacks down
+    if (x_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      x_attack = x_attack - 1;
+      miss_field = false;
+      counter_direction = 2;
+    }
+
+  case 2:
+    y_attack = y_attack - 1; // attacks left
+    if (y_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      y_attack += 1;
+      miss_field = false;
+      counter_direction = 3;
+    }
+
+  case 3:
+    x_attack = x_attack - 1; // attacks up
+    if (x_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      state_strategy = old_state_strategy;
+      x_attack_old = x_attack;
+      y_attack_old = y_attack;
+      miss_field = true;
+    }
+    else
+    {
+      x_attack += 1;
+      miss_field = false;
+      int x_attack_special = 0;
+      int y_attack_special = 0;
+
+      attack_strategy(&x_attack_special, &y_attack_special, memory);
+      LOG("DH_BOOM_%d_%d\n", x_attack_special, y_attack_special);
+
+      state_strategy = old_state_strategy;
+      x_attack_old = x_attack;
+      y_attack_old = y_attack;
+      counter_direction = 0;
+    }
+    break;
   }
 }
 
 void field_plot(int field[])
 {
   for (int row = 0; row < ROWS_FIELD; row++)
-  {   
-    LOG("DH_SF%dD", row);                                       // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++){ // Loop through each collumn
-      LOG("%d",field[row * COL_FIELD + col]);
+  {
+    LOG("DH_SF%dD", row); // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
+      LOG("%d", field[row * COL_FIELD + col]);
     }
     LOG("\n");
   }
-
 }
 
 void USART2_IRQHandler(void)
@@ -134,6 +274,23 @@ void config_hardware(void)
   NVIC_EnableIRQ(USART2_IRQn);                               // Enable USART2 interrupt
 }
 
+void reset_all(void)
+{
+
+  memset(my_checksum, 0, sizeof(my_checksum));
+  memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
+  memset(memory, 1, sizeof(memory));
+
+  my_checksum_control = 0; // summ to check if it's 30
+  x_attack = 0;
+  y_attack = 0;
+  x_defense = 0;
+  y_defense = 0;
+  my_ship_parts = SUM_SHIP_PARTS;
+  attacker_ship_parts = SUM_SHIP_PARTS;
+  state_strategy = 0;
+}
+
 int main(void)
 {
 
@@ -141,49 +298,37 @@ int main(void)
 
   fifo_init((Fifo_t *)&usart_rx_fifo); // Init the FIFO
 
-  int state = 0;
-
-  char message[MESSAGE_SIZE] = {0};        // Buffer to store the received message
-  int my_checksum[COL_FIELD] = {0};     // Initialize my_checksum array
-  int attacker_my_checksum[ROWS_FIELD]; // Buffer for chechsum host
-  int my_checksum_control = 0;          // summ to check if it's 30
-  int x_attack = 0;
-  int y_attack = 0;
-  int x_defense = 0;
-  int y_defense = 0;
-  int bytes_recv = 0;
-  bool able_to_save = true; // Flag to indicate if the message is ready to be sent
-  int my_ship_parts = SUM_SHIP_PARTS;
-  int attacker_ship_parts = SUM_SHIP_PARTS;
-
-
   for (;;)
   { // Infinite loop
 
     uint8_t byte = 0;
-    
+
     int msg_pos = 0;
-    do {
-      if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0) {
-        if (byte == '\n') break;
+    do
+    {
+      if (fifo_get((Fifo_t *)&usart_rx_fifo, &byte) == 0)
+      {
+        if (byte == '\n')
+          break;
         message[msg_pos] = (char)byte;
         msg_pos++;
       }
 
-      if (msg_pos >= MESSAGE_SIZE) {
+      if (msg_pos >= MESSAGE_SIZE)
+      {
         // buffer overflow
         msg_pos = 0;
-      } 
-    } while(1);
+      }
+    } while (1);
 
-   
     switch (state)
     {
-      case 0: //Start
+    case 0: // Start
 
       if (strncmp(message, "HD_START", 8) == 0)
       {
         LOG("DH_START_%s\n", USER_NAME); // Respond with the user's name
+        reset_all();
         memset(message, 0, sizeof(message)); // Reset the message buffer
         msg_pos = 0;
         state = 1;
@@ -194,13 +339,13 @@ int main(void)
 
       if (strncmp(message, "HD_CS_", 6) == 0)
       {
-                // store my_checksum from enemy
+        // store my_checksum from enemy
         // for (int i = 0; i < ROWS_FIELD; i++){
         //   attacker_my_checksum[i] = message[7+i];
         // controlling my_checksum
         // my_checksum_control += attacker_my_checksum[i];
         //}
-         //if (my_checksum_control != SUM_SHIP_PARTS){
+        // if (my_checksum_control != SUM_SHIP_PARTS){
         // printf("Ceating! my_checksum must be %d", SUM_SHIP_PARTS);
         //}
 
@@ -225,13 +370,38 @@ int main(void)
 
     case 2: // HD_BOOM
 
+      if (strncmp(message, "HD_BOOM_H", 9) == 0)
+      {
+        miss_field = false;
+        // attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
+        attacker_ship_parts--;
+        if (x_attack_old != x_attack || y_attack_old != y_attack)
+        {
+          state_strategy = 9;
+        }
+        else
+        {
+          state_strategy = old_state_strategy;
+        }
+
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+      }
+
+      if (strncmp(message, "HD_BOOM_M", 9) == 0)
+      {
+        miss_field = true;
+        memset(message, 0, sizeof(message)); // Reset the message buffer
+      }
+
       if (strncmp(message, "HD_BOOM_", 8) == 0)
       {
+
         // damage control
-        //umwandeln der werte
+        // umwandeln der werte
         x_defense = message[8] - '0';
         y_defense = message[10] - '0';
-        int field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
+        int field = 0;
+        field = fieldController(x_defense, y_defense, ACTIVE_BATTLEFIELD);
 
         if (field == 0)
         {
@@ -240,43 +410,66 @@ int main(void)
         else
         {
           LOG("DH_BOOM_H\n");
-          //my_checksum[y_defense] = my_checksum[y_defense] - 1;
+          // my_checksum[y_defense] = my_checksum[y_defense] - 1;
           my_ship_parts--;
         }
 
+        // attack
+        switch (state_strategy)
+        {
+        case 0: // first attack strategy
 
-                           // attack
-        attack_strategy(&x_attack, &y_attack, first_battlefield_enemy);
-        LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+          old_state_strategy = state_strategy;
+          attack_strategy(&x_attack, &y_attack, attack_best_strategy);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
 
+          if (x_attack * COL_FIELD + y_attack > 95)
+          {
+            state_strategy = 1;
+          }
+          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+          {
+            memset(message, 0, sizeof(message)); // Reset the message buffer
+            state = 3;
+          }
+          break;
 
-        if (strncmp(message, "HD_BOOM_H", 9) == 0){
-          //attacker_my_checksum[y_attack] = attacker_my_checksum[y_attack] - 1;
-          attacker_ship_parts--;
+        case 1: // changing battlefield
+          old_state_strategy = state_strategy;
+          attack_strategy(&x_attack, &y_attack, attack_each);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+
+          if (x_attack * COL_FIELD + y_attack > 95)
+          {
+          }
+          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+          {
+            memset(message, 0, sizeof(message)); // Reset the message buffer
+            state = 3;
+          }
+
+          break;
+        case 9:
+          attack_surround();
+          break;
         }
-      
-        
-        if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
+
+      case 3: // plot battlefield after end
+
+        if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+        {
+          field_plot(ACTIVE_BATTLEFIELD);
 
           memset(message, 0, sizeof(message)); // Reset the message buffer
-          state = 3;
+          state = 4;
         }
-      }
-      
-      break;
-    case 3: // HD_BOOM
+        break;
 
-      if ((my_ship_parts == 0) || (attacker_ship_parts ==0)){
-        field_plot(ACTIVE_BATTLEFIELD);
-
-        memset(message, 0, sizeof(message)); // Reset the message buffer
+      case 4: // reset
         state = 0;
 
+        break;
       }
-
-
-      break;
     }
-    
   }
 }
