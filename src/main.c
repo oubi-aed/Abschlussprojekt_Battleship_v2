@@ -56,7 +56,7 @@ int first_battlefield[COL_FIELD * ROWS_FIELD] = {
 
 // best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
 int attack_best_strategy[COL_FIELD * ROWS_FIELD] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 0, 0, 0, 1, 0, 0,
     0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
     0, 1, 0, 0, 0, 1, 0, 0, 0, 1,
     1, 0, 0, 0, 1, 0, 0, 0, 1, 0,
@@ -127,58 +127,76 @@ void attack_surround(void)
   {
   case 0:                                // attacks right
 
-    if (y_attack < COL_FIELD)
-    {
+    if (y_attack+1 < COL_FIELD)
+    {   
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack+1);
       counter_direction = 1;
+      break;
     }
     else
     {
+      
       counter_direction = 1;
     }
-    break;
+    
   case 1:                                // attacks down
-    if (x_attack < 10)
+    if (x_attack+1 < COL_FIELD)
     {
-
       LOG("DH_BOOM_%d_%d\n", x_attack+1, y_attack);
       counter_direction = 2;
+      break;
     }
     else
-    {
+    { 
       counter_direction = 2;
     }
-    break;
+    
   case 2:                                // attacks left
-    if (y_attack >= 0)
+    if (y_attack-1 >= 0)
     {
-
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack-1);
       counter_direction = 3;
+      break;
     }
     else
     {
+      
       counter_direction = 3;
     }
-    break;
+    
   case 3:                                // attacks up
-    if (x_attack >= 0)
+    if (x_attack-1 >= 0)
     {
       LOG("DH_BOOM_%d_%d\n", x_attack-1, y_attack);
-
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
       counter_direction = 0;
+    
     }
     else
     {
+
+          attack_strategy(&x_attack, &y_attack, attack_each);
+          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+
+          if (x_attack * COL_FIELD + y_attack > 95)
+          {
+            state_strategy = 1;
+          }
+          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
+          {
+            memset(message, 0, sizeof(message)); // Reset the message buffer
+            state = 3;
+          }
+          break;
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
       counter_direction = 0;
     }
     break;
+    
   }
 }
 
@@ -407,6 +425,7 @@ int main(void)
           break;
         case 9:
           attack_surround();
+          break;
         }
 
       case 3: // plot battlefield after end
