@@ -177,19 +177,7 @@ void attack_surround(void)
     else
     {
 
-          attack_strategy(&x_attack, &y_attack, attack_each);
-          LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-
-          if (x_attack * COL_FIELD + y_attack > 95)
-          {
-            state_strategy = 1;
-          }
-          if ((my_ship_parts == 0) || (attacker_ship_parts == 0))
-          {
-            memset(message, 0, sizeof(message)); // Reset the message buffer
-            state = 3;
-          }
-          break;
+      LOG("DH_BOOM_0_0\n");    
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
