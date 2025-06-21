@@ -40,6 +40,7 @@ int y_defense = 0;
 bool next_time_surround = false;
 bool miss_field = false;
 
+
 int my_ship_parts = SUM_SHIP_PARTS;
 int attacker_ship_parts = SUM_SHIP_PARTS;
 
@@ -54,6 +55,19 @@ int first_battlefield[COL_FIELD * ROWS_FIELD] = {
     0, 5, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 5, 0, 2, 2, 0, 3, 3, 3, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // controlsum is: 5, 1, 5, 1, 5, 1, 5, 1, 6, 0
+
+
+  int memory[COL_FIELD * ROWS_FIELD] = {
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 // best strategy: https://www.youtube.com/watch?v=q4aWxlGOV4w
 int attack_best_strategy[COL_FIELD * ROWS_FIELD] = {
@@ -112,14 +126,19 @@ void attack_strategy(int *x, int *y, int field[])
     { // Loop through each collumn
       if (field[row * COL_FIELD + col] > 0)
       {
+        if(memory[row * COL_FIELD + col] > 0){        
         *y = col;
         *x = row;
-        field[row * COL_FIELD + col] = 0;
+        memory[row * COL_FIELD + col] = 0;
         return;
+        }
       }
     }
   }
 }
+
+
+
 
 void attack_surround(void)
 {
@@ -127,11 +146,12 @@ void attack_surround(void)
   switch (counter_direction)
   {
   case 0:                                // attacks right
-
-    if (y_attack+1 < COL_FIELD && miss_field == false)
+    y_attack +=1;
+    if (y_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
     { 
-      y_attack +=1;
+      
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
       miss_field = true;
       break;
     }
@@ -142,11 +162,13 @@ void attack_surround(void)
       counter_direction = 1;
     }
     
-  case 1:                                // attacks down
-    if (x_attack+1 < COL_FIELD && miss_field == false)
+  case 1:       
+    x_attack +=1;                         // attacks down
+    if (x_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
     {
-      x_attack +=1;
+      
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
       miss_field = true;
       break;
     }
@@ -157,11 +179,13 @@ void attack_surround(void)
       counter_direction = 2;
     }
     
-  case 2:                                // attacks left
-    if (y_attack-1 >= 0 && miss_field == false)
+  case 2:             
+    y_attack = y_attack -1;                   // attacks left
+    if (y_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
     {
-      y_attack = y_attack -1;
+     
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
       miss_field = true;
       break;
     }
@@ -172,11 +196,13 @@ void attack_surround(void)
       counter_direction = 3;
     }
     
-  case 3:                                // attacks up
-    if (x_attack-1 >= 0 && miss_field == false)
+  case 3:    
+    x_attack = x_attack-1;                            // attacks up
+    if (x_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
     {
-      x_attack = x_attack-1;
+      
       LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
@@ -187,7 +213,12 @@ void attack_surround(void)
     {
       x_attack += 1;
       miss_field = false;
-      LOG("DH_BOOM_0_0\n");    
+      int x_attack_special = 0;
+      int y_attack_special = 0;
+
+      attack_strategy(&x_attack_special, &y_attack_special, memory);
+      LOG("DH_BOOM_%d_%d\n", x_attack_special, y_attack_special);  
+
       state_strategy = old_state_strategy;
       x_attack_old = x_attack;
       y_attack_old = y_attack;
@@ -254,6 +285,7 @@ void reset_all(void)
 
   memset(my_checksum, 0, sizeof(my_checksum));
   memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
+  memset(memory, 1, sizeof(memory));
 
   my_checksum_control = 0; // summ to check if it's 30
   x_attack = 0;
