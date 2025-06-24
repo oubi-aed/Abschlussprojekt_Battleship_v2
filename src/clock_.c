@@ -4,8 +4,8 @@
  * @brief  System Clock Configuration
  *         The system Clock is configured as follow :
  *            System Clock source            = PLL (HSI48)
- *            SYSCLK(Hz)                     = 48000000
- *            HCLK(Hz)                       = 48000000
+ *            SYSCLK(Hz)                     = 48000000 //haupttakt des Prozessors
+ *            HCLK(Hz)                       = 48000000 //clock for cpu core
  *            AHB Prescaler                  = 1
  *            APB1 Prescaler                 = 1
  *            HSI Frequency(Hz)              = 48000000
