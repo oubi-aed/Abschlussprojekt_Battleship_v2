@@ -92,149 +92,22 @@ int attack_each[COL_FIELD * ROWS_FIELD] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
+
+
+// ================================
+//         Functions
+// ================================
+
 // overrides _write so we can use printf
 //  The printf function is supported through the custom _write() function,
 //  which redirects output to UART (USART2)
-int _write(int handle, char *data, int size)
-{
-  int count = size;
-  while (count--)
-  {
-    while (!(USART2->ISR & USART_ISR_TXE))
-    {
-    };
-    USART2->TDR = *data++;
-  }
-  return size;
-}
+int _write(int handle, char *data, int size);
+int fieldController(int x, int y, int field[]); //returns value of the field
+void attack_strategy(int *x, int *y, int field[]); //reads attack_array and returns x and y value when value in array is 1
+void attack_surround(void); //if hit --> function searches around with state machine
+void field_plot(int field[]); //plots my battlefield
+void reset_all(void); //sets start terms
 
-int fieldController(int x, int y, int field[])
-{
-  int pos_number = 0;
-  pos_number = field[x * COL_FIELD + y];
-
-  return pos_number;
-}
-
-void attack_strategy(int *x, int *y, int field[])
-{
-  for (int row = 0; row < ROWS_FIELD; row++)
-  { // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++)
-    { // Loop through each collumn
-      if (field[row * COL_FIELD + col] > 0)
-      {
-        if (memory[row * COL_FIELD + col] > 0)
-        {
-          *y = col;
-          *x = row;
-          memory[row * COL_FIELD + col] = 0;
-          return;
-        }
-      }
-    }
-  }
-}
-
-void attack_surround(void)
-{
-  // attack surroundings
-  switch (counter_direction)
-  {
-  case 0: // attacks right
-    y_attack += 1;
-    if (y_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
-    {
-
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-      memory[x_attack * COL_FIELD + y_attack] = 0;
-      miss_field = true;
-      break;
-    }
-    else
-    {
-      y_attack = y_attack - 1;
-      miss_field = false;
-      counter_direction = 1;
-    }
-
-  case 1:
-    x_attack += 1; // attacks down
-    if (x_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
-    {
-
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-      memory[x_attack * COL_FIELD + y_attack] = 0;
-      miss_field = true;
-      break;
-    }
-    else
-    {
-      x_attack = x_attack - 1;
-      miss_field = false;
-      counter_direction = 2;
-    }
-
-  case 2:
-    y_attack = y_attack - 1; // attacks left
-    if (y_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
-    {
-
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-      memory[x_attack * COL_FIELD + y_attack] = 0;
-      miss_field = true;
-      break;
-    }
-    else
-    {
-      y_attack += 1;
-      miss_field = false;
-      counter_direction = 3;
-    }
-
-  case 3:
-    x_attack = x_attack - 1; // attacks up
-    if (x_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
-    {
-
-      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
-      memory[x_attack * COL_FIELD + y_attack] = 0;
-      state_strategy = old_state_strategy;
-      x_attack_old = x_attack;
-      y_attack_old = y_attack;
-      miss_field = true;
-    }
-    else
-    {
-      x_attack += 1;
-      miss_field = false;
-      int x_attack_special = 0;
-      int y_attack_special = 0;
-
-      attack_strategy(&x_attack_special, &y_attack_special, memory);
-      LOG("DH_BOOM_%d_%d\n", x_attack_special, y_attack_special);
-
-      state_strategy = old_state_strategy;
-      x_attack_old = x_attack;
-      y_attack_old = y_attack;
-      counter_direction = 0;
-    }
-    break;
-  }
-}
-
-void field_plot(int field[])
-{
-  for (int row = 0; row < ROWS_FIELD; row++)
-  {
-    LOG("DH_SF%dD", row); // Loop through each row
-    for (int col = 0; col < COL_FIELD; col++)
-    { // Loop through each collumn
-      LOG("%d", field[row * COL_FIELD + col]);
-    }
-    LOG("\n");
-  }
-}
 
 void USART2_IRQHandler(void)
 {
@@ -246,6 +119,8 @@ void USART2_IRQHandler(void)
   }
   USART2->ICR = 0xffffffff;
 }
+
+
 
 void config_hardware(void)
 {
@@ -274,22 +149,8 @@ void config_hardware(void)
   NVIC_EnableIRQ(USART2_IRQn);                               // Enable USART2 interrupt
 }
 
-void reset_all(void)
-{
 
-  memset(my_checksum, 0, sizeof(my_checksum));
-  memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
-  memset(memory, 1, sizeof(memory));
 
-  my_checksum_control = 0; // summ to check if it's 30
-  x_attack = 0;
-  y_attack = 0;
-  x_defense = 0;
-  y_defense = 0;
-  my_ship_parts = SUM_SHIP_PARTS;
-  attacker_ship_parts = SUM_SHIP_PARTS;
-  state_strategy = 0;
-}
 
 int main(void)
 {
@@ -472,4 +333,165 @@ int main(void)
       }
     }
   }
+}
+
+// overrides _write so we can use printf
+//  The printf function is supported through the custom _write() function,
+//  which redirects output to UART (USART2)
+int _write(int handle, char *data, int size)
+{
+  int count = size;
+  while (count--)
+  {
+    while (!(USART2->ISR & USART_ISR_TXE))
+    {
+    };
+    USART2->TDR = *data++;
+  }
+  return size;
+}
+
+int fieldController(int x, int y, int field[])
+{
+  int pos_number = 0;
+  pos_number = field[x * COL_FIELD + y];
+
+  return pos_number;
+}
+
+void attack_strategy(int *x, int *y, int field[])
+{
+  for (int row = 0; row < ROWS_FIELD; row++)
+  { // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
+      if (field[row * COL_FIELD + col] > 0)
+      {
+        if (memory[row * COL_FIELD + col] > 0)
+        {
+          *y = col;
+          *x = row;
+          memory[row * COL_FIELD + col] = 0;
+          return;
+        }
+      }
+    }
+  }
+}
+
+void attack_surround(void)
+{
+  // attack surroundings
+  switch (counter_direction)
+  {
+  case 0: // attacks right
+    y_attack += 1;
+    if (y_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      y_attack = y_attack - 1;
+      miss_field = false;
+      counter_direction = 1;
+    }
+
+  case 1:
+    x_attack += 1; // attacks down
+    if (x_attack < COL_FIELD && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      x_attack = x_attack - 1;
+      miss_field = false;
+      counter_direction = 2;
+    }
+
+  case 2:
+    y_attack = y_attack - 1; // attacks left
+    if (y_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      miss_field = true;
+      break;
+    }
+    else
+    {
+      y_attack += 1;
+      miss_field = false;
+      counter_direction = 3;
+    }
+
+  case 3:
+    x_attack = x_attack - 1; // attacks up
+    if (x_attack >= 0 && miss_field == false && memory[x_attack * COL_FIELD + y_attack] > 0)
+    {
+
+      LOG("DH_BOOM_%d_%d\n", x_attack, y_attack);
+      memory[x_attack * COL_FIELD + y_attack] = 0;
+      state_strategy = old_state_strategy;
+      x_attack_old = x_attack;
+      y_attack_old = y_attack;
+      miss_field = true;
+    }
+    else
+    {
+      x_attack += 1;
+      miss_field = false;
+      int x_attack_special = 0;
+      int y_attack_special = 0;
+
+      attack_strategy(&x_attack_special, &y_attack_special, memory);
+      LOG("DH_BOOM_%d_%d\n", x_attack_special, y_attack_special);
+
+      state_strategy = old_state_strategy;
+      x_attack_old = x_attack;
+      y_attack_old = y_attack;
+      counter_direction = 0;
+    }
+    break;
+  }
+}
+
+void field_plot(int field[])
+{
+  for (int row = 0; row < ROWS_FIELD; row++)
+  {
+    LOG("DH_SF%dD", row); // Loop through each row
+    for (int col = 0; col < COL_FIELD; col++)
+    { // Loop through each collumn
+      LOG("%d", field[row * COL_FIELD + col]);
+    }
+    LOG("\n");
+  }
+}
+
+void reset_all(void)
+{
+
+  memset(my_checksum, 0, sizeof(my_checksum));
+  memset(attacker_my_checksum, 0, sizeof(attacker_my_checksum));
+  memset(memory, 1, sizeof(memory));
+
+  my_checksum_control = 0; // summ to check if it's 30
+  x_attack = 0;
+  y_attack = 0;
+  x_defense = 0;
+  y_defense = 0;
+  my_ship_parts = SUM_SHIP_PARTS;
+  attacker_ship_parts = SUM_SHIP_PARTS;
+  state_strategy = 0;
 }
